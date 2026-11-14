@@ -1621,7 +1621,17 @@ log("Radio prête.","sys");refresh();
     return {id:id,ts:Math.max(0,+raw.ts||Date.now()),channel:channel,cmd:cmd,ownerId:String(raw.ownerId||'').slice(0,80),author:String(raw.author||'').slice(0,60)||'Utilisateur',text:text,mentions:(Array.isArray(raw.mentions)?raw.mentions:[]).map(function(x){return String(x||'').replace(/^@/,'').slice(0,40)}).filter(Boolean).slice(0,20),reply:rep};
   }
   function actionPersist(){try{localStorage.setItem(ACTION_KEY,JSON.stringify(actionMessages.filter(function(m){return m.ts>actionClearBefore}).slice(-ACTION_LIMIT)))}catch(e){}}
-  function actionRenderText(target,value){var str=String(value||''),rx=/@[A-Za-z0-9À-ÿ][A-Za-z0-9À-ÿ_.-]{0,39}/g,last=0,m;while((m=rx.exec(str))){if(m.index>last)target.appendChild(document.createTextNode(str.slice(last,m.index)));var tag=document.createElement('span');tag.className='action-mention';tag.textContent=m[0];target.appendChild(tag);last=rx.lastIndex}if(last<str.length)target.appendChild(document.createTextNode(str.slice(last)))}
+  function actionRenderText(target,value){
+    var str=String(value||'');
+    function escapedAt(index){var count=0;for(var j=index-1;j>=0&&str.charAt(j)==='\\';j--)count++;return count%2===1}
+    function validOpen(marker,index){var next=str.charAt(index+marker.length),prev=index?str.charAt(index-1):'';if(!next||/\s/.test(next))return false;if(marker==='_'){if(prev&&/[A-Za-z0-9À-ÿ]/.test(prev))return false}return true}
+    function validClose(marker,index){var prev=str.charAt(index-1),next=str.charAt(index+marker.length);if(!prev||/\s/.test(prev))return false;if(marker==='_'){if(next&&/[A-Za-z0-9À-ÿ]/.test(next))return false}return true}
+    function markerAt(index){var two=str.slice(index,index+2);if(two==='**'||two==='__'||two==='~~')return two;var one=str.charAt(index);return one==='*'||one==='_'?one:null}
+    function findClose(marker,from,end){for(var j=from;j<=end-marker.length;j++){if(marker==='*'&&str.slice(j,j+2)==='**'){j++;continue}if(marker==='_'&&str.slice(j,j+2)==='__'){j++;continue}if(str.slice(j,j+marker.length)===marker&&!escapedAt(j)&&validClose(marker,j))return j}return -1}
+    function appendPlain(host,value){if(!value)return;var rx=/@[A-Za-z0-9À-ÿ][A-Za-z0-9À-ÿ_.-]{0,39}/g,last=0,m;while((m=rx.exec(value))){if(m.index>last)host.appendChild(document.createTextNode(value.slice(last,m.index)));var mention=document.createElement('span');mention.className='action-mention';mention.textContent=m[0];host.appendChild(mention);last=rx.lastIndex}if(last<value.length)host.appendChild(document.createTextNode(value.slice(last)))}
+    function renderRange(host,start,end,closing){var i=start,plain='';function flush(){appendPlain(host,plain);plain=''}while(i<end){if(closing&&str.slice(i,i+closing.length)===closing&&!escapedAt(i)&&validClose(closing,i)){flush();return i}if(str.charAt(i)==='\\'&&i+1<end&&/[\\*_~]/.test(str.charAt(i+1))){plain+=str.charAt(i+1);i+=2;continue}var marker=markerAt(i);if(marker&&!escapedAt(i)&&validOpen(marker,i)){var close=findClose(marker,i+marker.length,end);if(close>i+marker.length){flush();var tagName=marker==='**'?'strong':marker==='__'?'u':marker==='~~'?'s':'em',tag=document.createElement(tagName);renderRange(tag,i+marker.length,close,marker);host.appendChild(tag);i=close+marker.length;continue}}plain+=str.charAt(i);i++}flush();return end}
+    renderRange(target,0,str.length,null);
+  }
   function actionDate(ts){var d=new Date(ts||Date.now());return d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'})+' '+d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}
   function actionSaveUnread(){try{localStorage.setItem(ACTION_UNREAD_KEY,JSON.stringify(actionUnread))}catch(e){}}
   function actionRenderChannels(){var buttons=document.querySelectorAll('.action-channel-button');Array.prototype.forEach.call(buttons,function(b){var id=b.getAttribute('data-action-channel'),active=id===$('actionChannel').value,count=Math.max(0,+actionUnread[id]||0),badge=b.querySelector('.action-channel-unread');b.classList.toggle('active',active);if(badge){badge.hidden=!count;badge.textContent=count?String(count):'';badge.title=count+' message'+(count>1?'s':'')+' non lu'+(count>1?'s':'')}});var cur=$('actionChatCurrent');if(cur)cur.textContent='# '+actionChannel($('actionChannel').value).label}
@@ -2390,6 +2400,13 @@ log("Radio prête.","sys");refresh();
  .action-commands-menu,.action-name-menu{right:0;width:min(290px,calc(100vw - 34px))}
 }
 @media(max-width:380px){.action-chat-toolbar-actions{max-width:78%;gap:3px}.action-clear-button{font-size:8px;padding:3px 5px}}
+</style>
+
+<style id="mishap-action-chat-formatting">
+.action-message-body strong{font-weight:800}
+.action-message-body em{font-style:italic}
+.action-message-body u{text-decoration:underline;text-underline-offset:2px}
+.action-message-body s{text-decoration:line-through}
 </style>
 
 <script id="mishap-version-pin">(function(){document.title='MISHAP PLATFORM · V1.0.0';Array.prototype.forEach.call(document.querySelectorAll('.version'),function(v){v.textContent='V1.0.0'});var login=document.querySelector('#login .hint[style*="font-weight:600"]');if(login)login.textContent='V1.0.0';})();</script>
