@@ -3558,5 +3558,408 @@ body.role-civil #actionChatPanel .action-alert-commands-label,body.role-civil #a
 }
 </style>
 
+
+<style id="mishap-v2-mobile-banner-ptt-redesign">
+/* Refonte mobile ciblée : sélecteur toujours visible, bannière stable et PTT dominant. */
+@media (max-width: 860px) {
+  body:not(.onboarding-active) {
+    height: 100dvh !important;
+    min-height: 100dvh !important;
+    overflow: hidden !important;
+  }
+
+  body:not(.onboarding-active) main.app {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    height: 100dvh !important;
+    min-height: 0 !important;
+    max-height: 100dvh !important;
+    margin: 0 !important;
+    padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 0px)) !important;
+    gap: 7px !important;
+    overflow: hidden !important;
+    box-sizing: border-box !important;
+  }
+
+  /* En-tête : ligne identité, puis deux gros onglets parfaitement visibles. */
+  body:not(.onboarding-active) main.app > .top,
+  body.view-radio main.app > .top,
+  body.view-actions main.app > .top {
+    display: grid !important;
+    grid-template-columns: auto minmax(0, 1fr) 30px 30px 32px !important;
+    grid-template-rows: 34px 42px !important;
+    grid-template-areas:
+      "back brand mic sound settings"
+      "switch switch switch switch switch" !important;
+    align-items: center !important;
+    justify-items: stretch !important;
+    column-gap: 6px !important;
+    row-gap: 6px !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    height: auto !important;
+    flex: 0 0 auto !important;
+    flex-wrap: initial !important;
+    margin: 0 !important;
+    padding: 7px !important;
+    box-sizing: border-box !important;
+    border-radius: 9px !important;
+  }
+
+  /* display:contents permet de placer les contrôles de .tools dans la grille du header. */
+  body:not(.onboarding-active) main.app > .top > .tools {
+    display: contents !important;
+  }
+
+  main.app > .top > .role-return-button {
+    grid-area: back !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    min-width: 42px !important;
+    width: auto !important;
+    min-height: 30px !important;
+    height: 30px !important;
+    margin: 0 !important;
+    padding: 4px 6px !important;
+    font-size: 10px !important;
+    line-height: 1 !important;
+    white-space: nowrap !important;
+  }
+
+  main.app > .top > .brand {
+    grid-area: brand !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    gap: 6px !important;
+    min-width: 0 !important;
+    width: 100% !important;
+    height: 34px !important;
+    margin: 0 !important;
+    overflow: hidden !important;
+  }
+  main.app > .top > .brand img {
+    display: block !important;
+    flex: 0 0 auto !important;
+    width: auto !important;
+    height: 27px !important;
+    max-width: 55px !important;
+    max-height: 27px !important;
+    object-fit: contain !important;
+  }
+  main.app > .top > .brand h1 {
+    min-width: 0 !important;
+    margin: 0 !important;
+    font-size: 12px !important;
+    line-height: 1.1 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+  main.app > .top > .brand .version {
+    display: none !important;
+  }
+
+  /* Contrôles secondaires compacts sur la même première rangée. */
+  main.app > .top > .tools > .view-switch {
+    grid-area: switch !important;
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    grid-template-rows: 42px !important;
+    align-self: stretch !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    height: 42px !important;
+    min-height: 42px !important;
+    margin: 0 !important;
+    padding: 3px !important;
+    gap: 4px !important;
+    overflow: visible !important;
+    border-radius: 8px !important;
+    box-sizing: border-box !important;
+    z-index: 5 !important;
+  }
+  main.app > .top > .tools > .view-switch .view-tab {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    min-height: 36px !important;
+    height: 36px !important;
+    margin: 0 !important;
+    padding: 5px 8px !important;
+    font-size: 13px !important;
+    font-weight: 750 !important;
+    line-height: 1 !important;
+    text-align: center !important;
+    white-space: nowrap !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    border-radius: 6px !important;
+  }
+  main.app > .top > .tools > .view-switch .view-tab.active,
+  main.app > .top > .tools > .view-switch .view-tab[aria-pressed="true"] {
+    background: #2864bd !important;
+    border-color: #4d8be7 !important;
+    color: #fff !important;
+    box-shadow: 0 1px 5px #2864bd55 !important;
+  }
+
+  main.app > .top > .tools > .sig,
+  main.app > .top > .tools > .chip,
+  main.app > .top > .tools > .legacy-mode-switch,
+  main.app > .top > .tools > #checkMicBtn {
+    display: none !important;
+  }
+  main.app > .top > .tools > .mic-indicator {
+    grid-area: mic !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 28px !important;
+    height: 28px !important;
+    min-width: 28px !important;
+    min-height: 28px !important;
+    margin: 0 !important;
+  }
+  main.app > .top > .tools > .snd {
+    grid-area: sound !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 28px !important;
+    height: 28px !important;
+    min-width: 28px !important;
+    margin: 0 !important;
+  }
+  main.app > .top > .tools > #setBtn {
+    grid-area: settings !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 30px !important;
+    height: 30px !important;
+    min-width: 30px !important;
+    min-height: 30px !important;
+    margin: 0 !important;
+    padding: 5px !important;
+  }
+  main.app > .top > .tools > #setBtn .lbl { display: none !important; }
+  main.app > .top > .tools > #setBtn svg { width: 17px !important; height: 17px !important; }
+
+  /* La zone de travail occupe tout l'espace qui reste après la bannière. */
+  #gameColumns {
+    display: flex !important;
+    flex: 1 1 auto !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    margin: 0 !important;
+    gap: 6px !important;
+    overflow: hidden !important;
+  }
+
+  /* Vue Radio : grand bouton PTT rond, clairement dominant. */
+  body.view-radio #gameColumns > #pttZone {
+    display: flex !important;
+    flex: 0 0 204px !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 100% !important;
+    height: 204px !important;
+    min-height: 204px !important;
+    max-height: 204px !important;
+    margin: 0 !important;
+    padding: 5px 0 !important;
+    gap: 7px !important;
+    box-sizing: border-box !important;
+  }
+  body.view-radio #gameColumns > #pttZone #ptt {
+    display: grid !important;
+    place-items: center !important;
+    flex: 0 0 172px !important;
+    width: 172px !important;
+    height: 172px !important;
+    min-width: 172px !important;
+    min-height: 172px !important;
+    max-width: 172px !important;
+    max-height: 172px !important;
+    aspect-ratio: 1 / 1 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border-radius: 50% !important;
+    overflow: hidden !important;
+    touch-action: none !important;
+  }
+  body.view-radio #gameColumns > #pttZone #ptt .mic {
+    width: 44% !important;
+    height: 44% !important;
+  }
+  body.view-radio #gameColumns > #pttZone #pttHint {
+    margin: 0 !important;
+    font-size: 12px !important;
+    line-height: 1.25 !important;
+    text-align: center !important;
+  }
+  body.view-radio #gameColumns > #pttZone .mic-check-status {
+    max-width: 95% !important;
+    margin: 0 !important;
+    font-size: 11px !important;
+    text-align: center !important;
+  }
+  body.view-radio #radioWorkspace {
+    display: flex !important;
+    flex: 1 1 auto !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    gap: 8px !important;
+    padding: 0 1px 4px 0 !important;
+  }
+  body.view-radio #radioWorkspace > * {
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    flex: 0 0 auto !important;
+    margin: 0 !important;
+  }
+  body.view-radio #actionChatPanel { display: none !important; }
+
+  /* Vue Tchat : pas de PTT, le panneau remplit réellement la zone de travail. */
+  body.view-actions #gameColumns > #pttZone,
+  body.view-actions #radioWorkspace {
+    display: none !important;
+  }
+  body.view-actions #actionChatPanel {
+    display: flex !important;
+    flex: 1 1 auto !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    height: auto !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    margin: 0 !important;
+    padding: 8px !important;
+    overflow: hidden !important;
+    box-sizing: border-box !important;
+  }
+  body.view-actions #actionChatPanel > .panelHead {
+    display: flex !important;
+    flex: 0 0 auto !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 6px !important;
+    margin: 0 0 6px !important;
+    padding: 0 0 6px !important;
+  }
+  body.view-actions #actionChatPanel .action-chat-layout {
+    display: flex !important;
+    flex: 1 1 auto !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    gap: 6px !important;
+    overflow: hidden !important;
+  }
+  body.view-actions #actionChatPanel .action-chat-sidebar {
+    display: flex !important;
+    flex: 0 0 auto !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    padding: 4px !important;
+    gap: 5px !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    -webkit-overflow-scrolling: touch;
+  }
+  body.view-actions #actionChatPanel .action-chat-sidebar-title,
+  body.view-actions #actionChatPanel .action-chat-sidebar-divider { display: none !important; }
+  body.view-actions #actionChatPanel .action-channel-button {
+    display: block !important;
+    flex: 0 0 auto !important;
+    width: auto !important;
+    min-width: max-content !important;
+    min-height: 36px !important;
+    padding: 7px 10px !important;
+    font-size: 11px !important;
+    white-space: nowrap !important;
+  }
+  body.view-actions #actionChatPanel .action-chat-main {
+    display: flex !important;
+    flex: 1 1 auto !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+  }
+  body.view-actions #actionChatPanel .action-chat-messages {
+    display: block !important;
+    flex: 1 1 auto !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+  }
+  body.view-actions #actionChatPanel .action-chat-compose {
+    display: flex !important;
+    flex: 0 0 auto !important;
+    align-items: stretch !important;
+    gap: 6px !important;
+    margin: 6px 0 0 !important;
+  }
+  body.view-actions #actionChatPanel .action-chat-compose textarea {
+    min-height: 44px !important;
+    height: 44px !important;
+    max-height: 100px !important;
+    font-size: 16px !important;
+    resize: none !important;
+  }
+}
+
+@media (max-width: 380px) {
+  main.app > .top > .brand img { max-width: 43px !important; }
+  main.app > .top > .brand h1 { font-size: 11px !important; }
+  main.app > .top > .role-return-button { min-width: 38px !important; font-size: 9px !important; }
+  main.app > .top > .tools > .view-switch .view-tab { font-size: 12px !important; padding-left: 3px !important; padding-right: 3px !important; }
+}
+
+/* En paysage compact, éviter que le PTT mange tout l'espace vertical. */
+@media (max-width: 860px) and (max-height: 560px) {
+  body.view-radio #gameColumns > #pttZone {
+    flex-basis: 132px !important;
+    height: 132px !important;
+    min-height: 132px !important;
+    max-height: 132px !important;
+  }
+  body.view-radio #gameColumns > #pttZone #ptt {
+    flex-basis: 112px !important;
+    width: 112px !important;
+    height: 112px !important;
+    min-width: 112px !important;
+    min-height: 112px !important;
+    max-width: 112px !important;
+    max-height: 112px !important;
+  }
+}
+</style>
+
 </body>
 </html>
