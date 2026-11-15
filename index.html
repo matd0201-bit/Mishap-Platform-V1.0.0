@@ -1120,15 +1120,37 @@ function restoreLog(){dbAll(function(rows){syncLogDates(rows.filter(function(r){
 function renderLogDate(){var sel=$("logDate");currentLogDate=sel?sel.value:"all";dbAll(function(rows){$("logRadio").innerHTML="";$("logText").innerHTML="";syncLogDates(rows.filter(function(r){return r.uid}));currentLogDate=sel?sel.value:"all";rows.forEach(function(r){if(!r.uid)return;var b=null;if(r.pcm&&r.pcm.length&&ac()){b=ctx.createBuffer(1,r.pcm.length,16000);var d=b.getChannelData(0);for(var i=0;i<r.pcm.length;i++)d[i]=r.pcm[i]/32767;if(r.air)b.air=1}addLi(r,b)})})}
 $("logDate").addEventListener("change",renderLogDate);
 window.mishapClearTransmissionLog=function(){
-  function clearView(){
-    seenLogs=Object.create(null);audioHave=Object.create(null);logDateValues=Object.create(null);currentLogDate="all";
-    $("logRadio").innerHTML="";$("logText").innerHTML="";
-    var select=$("logDate");if(select){select.value="all";syncLogDates([])}
-  }
-  clearView();
-  if(!DB)return false;
-  try{var tx=DB.transaction("log","readwrite");tx.objectStore("log").clear();return true}catch(e){return false}
-};
+   function clearView(){
+     seenLogs=Object.create(null);audioHave=Object.create(null);logDateValues=Object.create(null);currentLogDate="all";
+     $("logRadio").innerHTML="";$("logText").innerHTML="";
+     var select=$("logDate");if(select){select.value="all";syncLogDates([])}
+   }
+   function clearStore(db){
+     if(!db)return;
+     try{
+       if(!db.objectStoreNames||!db.objectStoreNames.contains("log"))return;
+       var tx=db.transaction("log","readwrite");
+       tx.objectStore("log").clear();
+       tx.oncomplete=function(){clearView()};
+       tx.onerror=function(){clearView()};
+       tx.onabort=function(){clearView()};
+     }catch(e){clearView()}
+   }
+   clearView();
+   if(DB){clearStore(DB);return true}
+   // DB may still be opening when the user presses Clear. Open it here and
+   // perform the persistent deletion once the object store is available.
+   try{
+     if(window.indexedDB){
+       var req=indexedDB.open("mishapRadio",1);
+       req.onupgradeneeded=function(){if(!req.result.objectStoreNames.contains("log"))req.result.createObjectStore("log",{keyPath:"id",autoIncrement:true})};
+       req.onsuccess=function(){DB=req.result;clearStore(DB)};
+       req.onerror=function(){clearView()};
+       req.onblocked=function(){clearView()};
+     }
+   }catch(e){clearView()}
+   return true;
+ };
 function log(txt,cls,buf,owned,share,note){var ts=Date.now(),uid=localUserId+":"+ts.toString(36)+":"+Math.random().toString(36).slice(2,8);var rec={uid:uid,owner:owned?localUserId:"",author:cs(),ts:ts,txt:String(txt||"").slice(0,1000),cls:cls||"",pcm:buf?packBuf(buf):null,air:buf&&buf.air?1:0,kind:(buf||RADIO_RE.test(String(txt||"")))?"radio":"text",note:note?1:0};seenLogs[uid]=1;if(rec.pcm)audioHave[uid]=1;logDateValues[logDateKey(ts)]=1;syncLogDates([]);addLi(rec,buf||null);dbPut(rec);if(share!==false&&typeof net!=="undefined"&&net)net.sendLog(rec)}
 function setState(s,c){var e=$("state");e.textContent=s;e.className="state"+(c?" "+c:"")+(s==="SIGNAL 100"?" alert":"");var n=$("snd");if(n)n.className="snd"+(c?" "+c:"")}
 function cs(){return st.mode==="dispatch"?((cfg.dprof&&cfg.dprof.name||"").trim()||"DISPATCH"):((cfg.prof&&cfg.prof.cs||"").trim()||"Unité")}
@@ -4779,17 +4801,323 @@ main.app>.top>.brand{margin-left:3px!important}
   var logButton=document.getElementById('logClearButton');
   if(logButton)logButton.addEventListener('click',function(){
     if(!window.confirm('Effacer tout le journal des transmissions sur cet appareil ?'))return;
-    if(!window.mishapClearTransmissionLog||!window.mishapClearTransmissionLog()){
-      window.alert('Le journal n’a pas pu être effacé. Réessayez après le chargement de la radio.');
+    try{if(typeof window.mishapClearTransmissionLog==='function')window.mishapClearTransmissionLog()}catch(e){
+      // L'affichage est déjà vidé ; ne pas signaler un échec si seul le stockage est indisponible.
     }
   });
   var actionButton=document.getElementById('actionClearButton');
   if(actionButton)actionButton.addEventListener('click',function(){
     if(!window.confirm('Effacer l’affichage de tous les salons du tchat actions sur cet appareil ? Les autres utilisateurs ne seront pas affectés.'))return;
-    if(window.mishapActionClearLocal)window.mishapActionClearLocal();
+    try{if(typeof window.mishapActionClearLocal==='function')window.mishapActionClearLocal()}catch(e){
+      // On conserve le tchat visuellement vidé et on évite une fausse alerte utilisateur.
+    }
   });
 })();
 </script>
 
+<style id="mishap-v200-mobile-layout-correction">
+/* Corrections mobiles ciblées : la version ordinateur conserve sa mise en page actuelle. */
+@media (max-width: 860px) {
+  body:not(.onboarding-active) main.app > .top {
+    display: grid !important;
+    grid-template-columns: 36px minmax(0, 1fr) 30px 34px 34px 42px !important;
+    grid-template-rows: 42px 44px !important;
+    grid-template-areas:
+      "back brand count mic sound settings"
+      "switch switch switch switch switch switch" !important;
+    align-items: center !important;
+    justify-items: stretch !important;
+    column-gap: 5px !important;
+    row-gap: 7px !important;
+    padding: 8px !important;
+    overflow: visible !important;
+  }
+  body:not(.onboarding-active) main.app > .top > .tools { display: contents !important; }
+  main.app > .top > .role-return-button {
+    grid-area: back !important;
+    width: 36px !important; min-width: 36px !important; max-width: 36px !important;
+    height: 36px !important; min-height: 36px !important;
+  }
+  main.app > .top > .brand { grid-area: brand !important; min-width: 0 !important; }
+  main.app > .top > .tools > .network-status { grid-area: count !important; }
+  main.app > .top > .tools > .mic-indicator { grid-area: mic !important; width: 30px !important; height: 30px !important; min-width: 30px !important; min-height: 30px !important; }
+  main.app > .top > .tools > .snd { grid-area: sound !important; width: 30px !important; height: 30px !important; min-width: 30px !important; min-height: 30px !important; }
+  main.app > .top > .tools > #setBtn {
+    grid-area: settings !important;
+    display: inline-flex !important; align-items: center !important; justify-content: center !important;
+    width: 40px !important; min-width: 40px !important; max-width: 40px !important;
+    height: 40px !important; min-height: 40px !important; max-height: 40px !important;
+    margin: 0 !important; padding: 7px !important; box-sizing: border-box !important;
+  }
+  main.app > .top > .tools > #setBtn svg { width: 22px !important; height: 22px !important; }
+  main.app > .top > .tools > #setBtn .lbl { display: none !important; }
+
+  /* Le sélecteur Radio / Tchat utilise toute la surface de ses deux boutons. */
+  main.app > .top > .tools > .view-switch {
+    grid-area: switch !important;
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    grid-template-rows: 44px !important;
+    width: 100% !important; height: 44px !important; min-height: 44px !important;
+    margin: 0 !important; padding: 0 !important; gap: 0 !important;
+    overflow: hidden !important; box-sizing: border-box !important;
+    border: 1px solid #2c3c55 !important; border-radius: 9px !important;
+    background: #0c1119 !important;
+  }
+  main.app > .top > .tools > .view-switch .view-tab {
+    display: flex !important; align-items: center !important; justify-content: center !important;
+    width: 100% !important; height: 44px !important; min-height: 44px !important;
+    margin: 0 !important; padding: 6px 8px !important;
+    border: 0 !important; border-radius: 0 !important;
+    background: transparent !important; color: #9099a8 !important;
+    box-shadow: none !important; outline: 0 !important;
+    font-size: 13px !important; font-weight: 750 !important; line-height: 1.1 !important;
+    white-space: nowrap !important; box-sizing: border-box !important;
+  }
+  main.app > .top > .tools > .view-switch .view-tab.active,
+  main.app > .top > .tools > .view-switch .view-tab[aria-pressed="true"] {
+    background: #2864bd !important; color: #fff !important;
+    border: 0 !important; border-radius: 7px !important;
+    box-shadow: none !important; outline: 0 !important;
+  }
+  main.app > .top > .tools > .view-switch .view-tab::before,
+  main.app > .top > .tools > .view-switch .view-tab::after { display: none !important; content: none !important; }
+
+  /* Cartes et bloc-notes rejoignent le statut de la radio, et gagnent en taille. */
+  #radioStatusTools {
+    display: flex !important; align-items: center !important; gap: 8px !important;
+    width: 100% !important; min-width: 0 !important; box-sizing: border-box !important;
+    margin: 10px 0 0 !important; padding: 10px 0 0 !important;
+    border-top: 1px solid var(--line) !important;
+  }
+  #radioStatusTools #myStatus { display: block; flex: 1 1 auto !important; min-width: 0 !important; margin: 0 !important; }
+  #radioStatusTools #myStatus h3 { margin: 0 0 7px !important; font-size: 13px !important; }
+  #radioStatusTools #myStatus .sttView { justify-content: flex-start !important; }
+  #radioStatusTools #myStatus .stt { min-height: 38px !important; }
+  #radioStatusTools > #headerNotesBtn,
+  #radioStatusTools > #mapBlocksBtn {
+    display: inline-flex !important; flex: 0 0 66px !important;
+    flex-direction: column !important; align-items: center !important; justify-content: center !important;
+    gap: 4px !important; width: 66px !important; min-width: 66px !important; max-width: 66px !important;
+    height: 58px !important; min-height: 58px !important; max-height: 58px !important;
+    margin: 0 !important; padding: 6px 3px !important; box-sizing: border-box !important;
+    border-radius: 9px !important; white-space: normal !important; line-height: 1.05 !important;
+  }
+  #radioStatusTools .header-mobile-icon { display: block !important; width: 24px !important; height: 24px !important; flex: 0 0 24px !important; }
+  #radioStatusTools .header-control-label { display: block !important; font-size: 9px !important; line-height: 1.05 !important; text-align: center !important; white-space: nowrap !important; overflow: hidden !important; }
+
+  /* Tchat : proportions compactes et zone de messages réellement adaptée au mobile. */
+  body.view-actions #actionChatPanel {
+    width: 100% !important; min-width: 0 !important;
+    min-height: calc(100dvh - 112px) !important; height: auto !important; max-height: none !important;
+    margin: 0 !important; padding: 8px !important; box-sizing: border-box !important;
+    overflow: visible !important;
+  }
+  body.view-actions #actionChatPanel > .panelHead {
+    align-items: center !important; gap: 8px !important;
+    margin: 0 0 7px !important; padding: 0 0 7px !important;
+  }
+  body.view-actions #actionChatPanel > .panelHead h2 { font-size: 12px !important; letter-spacing: .08em !important; }
+  body.view-actions #actionChatPanel > .panelHead .action-clear-button {
+    min-width: 58px !important; min-height: 34px !important; padding: 5px 9px !important;
+    font-size: 11px !important; border-radius: 8px !important;
+  }
+  body.view-actions #actionChatPanel .action-chat-layout {
+    display: flex !important; flex-direction: column !important; gap: 6px !important;
+    width: 100% !important; min-width: 0 !important; min-height: 0 !important;
+    overflow: visible !important;
+  }
+  body.view-actions #actionChatPanel .action-chat-sidebar {
+    display: flex !important; flex: 0 0 auto !important; flex-direction: row !important;
+    flex-wrap: nowrap !important; align-items: center !important; gap: 5px !important;
+    width: 100% !important; min-width: 0 !important; padding: 4px !important;
+    overflow-x: auto !important; overflow-y: hidden !important;
+    -webkit-overflow-scrolling: touch !important; overscroll-behavior-x: contain !important;
+  }
+  body.view-actions #actionChatPanel .action-chat-sidebar-title,
+  body.view-actions #actionChatPanel .action-chat-sidebar-divider { display: none !important; }
+  body.view-actions #actionChatPanel .action-channel-button {
+    flex: 0 0 auto !important; width: auto !important; min-width: max-content !important;
+    min-height: 34px !important; padding: 6px 9px !important;
+    font-size: 11px !important; line-height: 1 !important; border-radius: 7px !important;
+  }
+  body.view-actions #actionChatPanel .action-chat-main {
+    display: flex !important; flex: 1 1 auto !important; flex-direction: column !important;
+    width: 100% !important; min-width: 0 !important; min-height: 0 !important;
+    margin: 0 !important; padding: 0 !important; overflow: visible !important;
+  }
+  body.view-actions #actionChatPanel .action-chat-toolbar {
+    display: flex !important; flex: 0 0 auto !important; flex-direction: row !important;
+    align-items: center !important; justify-content: space-between !important; gap: 6px !important;
+    width: 100% !important; min-width: 0 !important; margin: 0 0 6px !important;
+    padding: 0 0 6px !important;
+  }
+  body.view-actions #actionChatPanel .action-chat-current { flex: 1 1 auto !important; min-width: 0 !important; font-size: 12px !important; }
+  body.view-actions #actionChatPanel .action-chat-toolbar-actions {
+    display: flex !important; flex: 0 0 auto !important; align-items: center !important;
+    justify-content: flex-end !important; flex-wrap: nowrap !important; gap: 5px !important;
+    width: auto !important; max-width: none !important; min-width: 0 !important;
+  }
+  body.view-actions #actionChatPanel .action-notify-button,
+  body.view-actions #actionChatPanel .action-commands-button,
+  body.view-actions #actionChatPanel .action-name-button {
+    display: inline-flex !important; align-items: center !important; justify-content: center !important;
+    width: 34px !important; min-width: 34px !important; max-width: 34px !important;
+    height: 34px !important; min-height: 34px !important; padding: 4px !important;
+    font-size: 14px !important; border-radius: 7px !important;
+  }
+  body.view-actions #actionChatPanel .action-chat-messages {
+    flex: 1 1 auto !important; width: 100% !important; min-width: 0 !important;
+    min-height: clamp(120px, 20dvh, 175px) !important;
+    max-height: 38dvh !important; overflow-x: hidden !important; overflow-y: auto !important;
+    padding: 5px 3px 8px 0 !important; gap: 6px !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+  body.view-actions #actionChatPanel .action-message { padding: 8px 9px !important; }
+  body.view-actions #actionChatPanel .action-message-body { font-size: 13px !important; line-height: 1.4 !important; }
+  body.view-actions #actionChatPanel .action-chat-compose {
+    display: flex !important; flex: 0 0 auto !important; align-items: stretch !important;
+    flex-wrap: wrap !important; gap: 6px !important; margin: 6px 0 0 !important;
+    padding: 7px 0 0 !important;
+  }
+  body.view-actions #actionChatPanel .action-input-shell { flex: 1 1 100% !important; width: 100% !important; min-width: 0 !important; min-height: 0 !important; }
+  body.view-actions #actionChatPanel .action-chat-compose textarea {
+    width: 100% !important; min-height: 48px !important; height: 48px !important; max-height: 88px !important;
+    padding: 10px !important; font-size: 15px !important; line-height: 1.35 !important; resize: none !important;
+  }
+  body.view-actions #actionChatPanel .action-chat-compose button {
+    min-height: 39px !important; padding: 7px 11px !important; font-size: 12px !important;
+  }
+  body.view-actions #actionChatPanel #actionSend { min-width: 78px !important; margin-left: auto !important; }
+}
+@media (max-width: 390px) {
+  body:not(.onboarding-active) main.app > .top {
+    grid-template-columns: 34px minmax(0, 1fr) 26px 30px 30px 40px !important;
+    column-gap: 4px !important; padding: 6px !important;
+  }
+  #radioStatusTools > #headerNotesBtn,
+  #radioStatusTools > #mapBlocksBtn { flex-basis: 60px !important; width: 60px !important; min-width: 60px !important; max-width: 60px !important; }
+  body.view-actions #actionChatPanel .action-chat-messages { min-height: 115px !important; max-height: 36dvh !important; }
+  body.view-actions #actionChatPanel .action-chat-toolbar-actions { gap: 4px !important; }
+}
+</style>
+<script id="mishap-v200-mobile-layout-and-menu-fix">
+(function(){
+  'use strict';
+  var notes=document.getElementById('headerNotesBtn');
+  var map=document.getElementById('mapBlocksBtn');
+  var status=document.getElementById('myStatus');
+  var radioPanel=document.getElementById('radioPanel');
+  var tools=document.querySelector('main.app > .top > .tools');
+  var settings=document.getElementById('setBtn');
+  if(notes&&map&&status&&radioPanel&&tools){
+    var originalStatusParent=status.parentNode;
+    var originalStatusNext=status.nextSibling;
+    var statusTools=null;
+    var mobileQuery=window.matchMedia?window.matchMedia('(max-width: 860px)'):null;
+    function setMobilePlacement(){
+      var mobile=mobileQuery?mobileQuery.matches:window.innerWidth<=860;
+      if(mobile){
+        var notesLabel=notes.querySelector('.header-control-label');
+        var mapLabel=map.querySelector('.header-control-label');
+        if(notesLabel)notesLabel.textContent='Bloc-notes';
+        if(mapLabel)mapLabel.textContent='Cartes';
+        if(!statusTools){
+          statusTools=document.createElement('div');
+          statusTools.id='radioStatusTools';
+          statusTools.className='radio-status-tools';
+          originalStatusParent.insertBefore(statusTools,status);
+        }
+        if(status.parentNode!==statusTools)statusTools.appendChild(status);
+        if(notes.parentNode!==statusTools)statusTools.appendChild(notes);
+        if(map.parentNode!==statusTools)statusTools.appendChild(map);
+      }else{
+        var notesLabel=notes.querySelector('.header-control-label');
+        var mapLabel=map.querySelector('.header-control-label');
+        if(notesLabel)notesLabel.textContent='Ouvrir le bloc-notes';
+        if(mapLabel)mapLabel.textContent='Ouvrir les cartes';
+        if(statusTools){
+          if(status.parentNode!==originalStatusParent){
+            originalStatusParent.insertBefore(status,originalStatusNext&&originalStatusNext.parentNode===originalStatusParent?originalStatusNext:null);
+          }
+          statusTools.remove();statusTools=null;
+        }
+        if(map.parentNode!==tools)tools.insertBefore(map,settings&&settings.parentNode===tools?settings:null);
+        if(notes.parentNode!==tools)tools.insertBefore(notes,settings&&settings.parentNode===tools?settings:null);
+      }
+    }
+    setMobilePlacement();
+    if(mobileQuery){
+      if(mobileQuery.addEventListener)mobileQuery.addEventListener('change',setMobilePlacement);
+      else if(mobileQuery.addListener)mobileQuery.addListener(setMobilePlacement);
+    }else window.addEventListener('resize',setMobilePlacement);
+  }
+
+  // Sur petit écran, les menus flottent au niveau de la fenêtre, sans être coupés
+  // par le panneau du tchat ou par les bords de la colonne de boutons.
+  var menuDefs=[
+    ['actionCommandsMenu','actionCommandsButton'],
+    ['actionNotifyMenu','actionNotifyButton'],
+    ['actionNameMenu','actionNameButton'],
+    ['actionMentionMenu','actionMentionButton']
+  ];
+  function mobile(){return window.matchMedia?window.matchMedia('(max-width: 860px)').matches:window.innerWidth<=860}
+  function clearMenuPosition(menu){
+    ['position','left','right','top','bottom','width','max-height','overflow-y','z-index','box-sizing','margin','transform'].forEach(function(k){menu.style.removeProperty(k)});
+  }
+  function positionMenu(menu,trigger){
+    if(!menu||menu.hidden)return;
+    if(!mobile()){clearMenuPosition(menu);return}
+    menu.style.setProperty('position','fixed','important');
+    menu.style.setProperty('left','12px','important');
+    menu.style.setProperty('right','auto','important');
+    menu.style.setProperty('top','12px','important');
+    menu.style.setProperty('bottom','auto','important');
+    menu.style.setProperty('width','min(300px, calc(100vw - 24px))','important');
+    menu.style.setProperty('max-height','min(56dvh, 390px)','important');
+    menu.style.setProperty('overflow-y','auto','important');
+    menu.style.setProperty('z-index','10050','important');
+    menu.style.setProperty('box-sizing','border-box','important');
+    menu.style.setProperty('margin','0','important');
+    menu.style.setProperty('transform','none','important');
+    var triggerRect=trigger?trigger.getBoundingClientRect():null;
+    var menuRect=menu.getBoundingClientRect();
+    var viewportW=Math.max(document.documentElement.clientWidth,window.innerWidth||0);
+    var viewportH=Math.max(document.documentElement.clientHeight,window.innerHeight||0);
+    var menuW=Math.min(menuRect.width||300,viewportW-24);
+    var menuH=Math.min(menuRect.height||220,viewportH-24);
+    var left=triggerRect?triggerRect.right-menuW:viewportW-menuW-12;
+    left=Math.max(12,Math.min(left,viewportW-menuW-12));
+    var top=triggerRect?triggerRect.bottom+7:12;
+    if(top+menuH>viewportH-12)top=triggerRect?triggerRect.top-menuH-7:viewportH-menuH-12;
+    top=Math.max(12,Math.min(top,viewportH-menuH-12));
+    menu.style.setProperty('left',Math.round(left)+'px','important');
+    menu.style.setProperty('top',Math.round(top)+'px','important');
+  }
+  menuDefs.forEach(function(pair){
+    var menu=document.getElementById(pair[0]);
+    var trigger=document.getElementById(pair[1]);
+    if(!menu)return;
+    if(typeof MutationObserver==='function'){
+      var observer=new MutationObserver(function(){
+        if(!menu.hidden){
+          var place=function(){positionMenu(menu,trigger)};
+          if(window.requestAnimationFrame)window.requestAnimationFrame(place);else setTimeout(place,0);
+        }else if(!mobile())clearMenuPosition(menu);
+      });
+      observer.observe(menu,{attributes:true,attributeFilter:['hidden']});
+    }
+  });
+  function repositionOpenMenus(){
+    menuDefs.forEach(function(pair){
+      var menu=document.getElementById(pair[0]);
+      var trigger=document.getElementById(pair[1]);
+      if(menu&&!menu.hidden)positionMenu(menu,trigger);
+    });
+  }
+  window.addEventListener('resize',repositionOpenMenus,{passive:true});
+  window.addEventListener('scroll',repositionOpenMenus,true);
+})();
+</script>
 </body>
 </html>
