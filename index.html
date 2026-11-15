@@ -1098,6 +1098,25 @@ function dispatchConsoleReady(){
   var dot=$("gdot");
   return !!(net.isConferenceEnabled()&&dot&&dot.classList.contains("on"));
 }
+// Le Panic est commun à l'unité et au Dispatch, mais exige toujours une liaison CON active.
+function panicConferenceReady(){
+  if(!st.on||typeof net==="undefined"||!net||typeof net.isConferenceEnabled!=="function")return false;
+  var dot=$("gdot");
+  return !!(net.isConferenceEnabled()&&dot&&dot.classList.contains("on"));
+}
+function syncPanicControls(){
+  var ready=panicConferenceReady();
+  [$("panic"),$("panicAction")].forEach(function(button){
+    if(!button)return;
+    button.disabled=!ready;
+    button.setAttribute("aria-disabled",ready?"false":"true");
+    button.tabIndex=ready?0:-1;
+    button.classList.toggle("panic-conference-locked",!ready);
+    var panicOn=typeof st!=="undefined"&&st?(st.mode==="dispatch"?!!st.panics["dispatch-local"]:!!st.panics.me):false;
+    button.title=!ready?"Connectez la radio à une conférence pour déclencher ou annuler le Panic":(panicOn?"Annuler le Panic":"Déclencher le Panic");
+  });
+  return ready;
+}
 function syncDispatchControls(){
   var ready=dispatchConsoleReady();
   ["s100","s100end","priorityTone","monAllBtn","dispatchHeliToggle"].forEach(function(id){
@@ -1117,6 +1136,7 @@ function syncDispatchControls(){
     ack.setAttribute("aria-disabled",ackReady?"false":"true");
     ack.title=!ready?"Connectez la radio à une conférence pour acquitter le Panic":(!hasActivePanic?"Aucun Panic en cours":"Acquitter le Panic en cours");
   }
+  syncPanicControls();
   return ready;
 }
 function refresh(){try{confApply(1);ui()}catch(e){}
@@ -1127,7 +1147,7 @@ function refresh(){try{confApply(1);ui()}catch(e){}
   if(act.length)m.push("SIGNAL 100 EN COURS : "+act.map(function(k){return CHANNELS[k]+(st.s100[k].loc?" ("+st.s100[k].loc+")":"")}).join(", ")+". Fréquence réservée aux urgences.");
   if(st.call&&Date.now()<st.call.until)m.push("CALL "+CHANNELS[st.call.ch]+(st.call.txt?" : "+st.call.txt:""));
   b.classList.toggle("show",m.length>0);b.classList.toggle("warn",!Object.keys(st.panics).length&&!act.length);b.textContent=m.join("\n");
-  var pb=$("panic"),panicOn=st.mode==="dispatch"?!!st.panics["dispatch-local"]:!!st.panics.me;pb.classList.toggle("on",panicOn);pb.disabled=!st.on;pb.setAttribute("aria-label",panicOn?"Annuler le Panic":"Déclencher le Panic");pb.title=panicOn?"Annuler le Panic":"Déclencher le Panic";pb.tabIndex=st.on?0:-1 }
+  var pb=$("panic"),panicOn=st.mode==="dispatch"?!!st.panics["dispatch-local"]:!!st.panics.me,panicReady=panicConferenceReady();pb.classList.toggle("on",panicOn);pb.disabled=!panicReady;pb.setAttribute("aria-label",panicOn?"Annuler le Panic":"Déclencher le Panic");pb.title=panicReady?(panicOn?"Annuler le Panic":"Déclencher le Panic"):"Connectez la radio à une conférence pour déclencher ou annuler le Panic";pb.tabIndex=panicReady?0:-1;var panicAction=$("panicAction");if(panicAction){panicAction.disabled=!panicReady;panicAction.setAttribute("aria-disabled",panicReady?"false":"true");panicAction.classList.toggle("panic-conference-locked",!panicReady)} }
   updateLcdStatus();
   $("panicAction").textContent=st.mode==="dispatch"?(st.panics["dispatch-local"]?"ANNULER LE PANIC":"PANIC"):(st.panics.me?"ANNULER MON PANIC":"PANIC");
   var p=$("ptt");p.disabled=st.busy||!st.on||!$("gdot").classList.contains("on");$("pwr").setAttribute("aria-pressed",st.on?"true":"false");$("pwr").setAttribute("aria-label",st.on?"Éteindre la radio":"Allumer la radio");$("pwr").title=st.on?"Éteindre la radio":"Allumer la radio";$("pwrTxt").textContent=st.on?"ON":"OFF";$("chPrev").disabled=$("chNext").disabled=!st.on;["kProf","kSet"].forEach(function(id){var e=$(id);if(e)e.disabled=!st.on;});
@@ -1431,7 +1451,7 @@ function setMyStatus(k,by,quiet){k=sttOk(k);var ch=st.status!==k;st.status=k;ren
 function dispSetStatus(uid,k){k=sttOk(k);if(!uid||k==="panic")return;net.units().forEach(function(p){if(p.uid===uid)p.stt=k});net.bc({t:"setStatus",uid:uid,s:k,by:disp()});net.render()}
  function dispMoveChannel(uid,ch){if(st.mode!=="dispatch"||!uid)return;ch=cl(ch);var p=net.units().filter(function(x){return x.uid===uid})[0];if(!p)return;net.sendTo(uid,{t:"moveChannel",uid:uid,ch:ch,by:disp()});p.ch=ch;net.render();log("Canal de "+p.cs+" déplacé vers "+CHANNELS[ch]+".","sys",null,true)}
 renderMyStatus();
-function toggleMyPanic(){if(!st.on){sndDenied();return}if(st.mode!=="unit"){sndDenied();return}ac();var on=!st.panics.me;setPanic("me",on,disp(),st.ch,false);
+function toggleMyPanic(){if(!panicConferenceReady()){sndDenied();syncPanicControls();return}if(st.mode!=="unit"){sndDenied();return}ac();var on=!st.panics.me;setPanic("me",on,disp(),st.ch,false);
   if(on){if(st.status!=="panic")st.prePanic=st.status;setMyStatus("panic","",true)}else restorePanicStatus();
   net.bc({t:"panic",on:on?1:0,who:disp(),ch:st.ch});$("panicAction").classList.toggle("active",on);$("panicAction").textContent=on?"ANNULER MON PANIC":"PANIC"}
 $("panicAction").onclick=toggleMyPanic;
@@ -1861,10 +1881,10 @@ log("Radio prête.","sys");refresh();
   if(ver)ver.textContent='V2.0.0';
   else {var h=document.querySelector('.brand');if(h){var v=document.createElement('span');v.className='version';v.textContent='V2.0.0';h.appendChild(v)}}
   // Bouton jaune du boîtier : déclenche le Panic de l'unité ou du Dispatch selon le mode.
-  var yellow=$('panic');if(yellow){yellow.disabled=!st.on;yellow.setAttribute('aria-label','Déclencher ou annuler le Panic');yellow.tabIndex=st.on?0:-1;yellow.onclick=function(){ac();sndClick();if(!st.on){sndDenied();return}if(st.mode==='dispatch')dispatchPanic();else toggleMyPanic()}}
+  var yellow=$('panic');if(yellow){yellow.disabled=!panicConferenceReady();yellow.setAttribute('aria-label','Déclencher ou annuler le Panic');yellow.tabIndex=panicConferenceReady()?0:-1;yellow.onclick=function(){if(!panicConferenceReady()){sndDenied();syncPanicControls();return}ac();sndClick();if(st.mode==='dispatch')dispatchPanic();else toggleMyPanic()}}
   // Un seul bouton PANIC : unité ou déclenchement général selon le mode actif.
   function dispatchPanic(){
-    if(st.mode!=='dispatch'){sndDenied();return}
+    if(st.mode!=='dispatch'||!dispatchConsoleReady()){sndDenied();syncDispatchControls();return}
     ac();
     var active=!!st.panics['dispatch-local'];
     if(active){delete st.panics['dispatch-local'];log('PANIC dispatch annulé.','sys',null,true)}
@@ -3960,6 +3980,161 @@ body.role-civil #actionChatPanel .action-alert-commands-label,body.role-civil #a
   }
 }
 </style>
+
+
+<style id="mishap-v2-mobile-header-icons-style">
+.header-mobile-icon{display:none;width:18px;height:18px;flex:0 0 18px;vertical-align:middle}
+.header-control-label{display:inline}
+@media (max-width:860px){
+  body:not(.onboarding-active) main.app>.top,
+  body.view-radio main.app>.top,
+  body.view-actions main.app>.top{
+    display:grid!important;
+    grid-template-columns:32px minmax(32px,1fr) 24px 42px 28px 28px 30px!important;
+    grid-template-rows:36px 40px!important;
+    grid-template-areas:
+      "back brand brand count mic sound settings"
+      "switch switch switch switch switch notes map"!important;
+    align-items:center!important;justify-items:stretch!important;
+    column-gap:5px!important;row-gap:5px!important;
+    width:100%!important;height:auto!important;min-height:0!important;
+    flex:0 0 auto!important;padding:7px!important;margin:0!important;
+    box-sizing:border-box!important;overflow:visible!important;
+  }
+  body:not(.onboarding-active) main.app>.top>.tools{display:contents!important}
+  main.app>.top>.role-return-button{
+    grid-area:back!important;display:inline-flex!important;
+    width:32px!important;min-width:32px!important;max-width:32px!important;
+    height:32px!important;min-height:32px!important;margin:0!important;padding:5px!important;
+    justify-content:center!important;align-items:center!important;border-radius:8px!important;
+  }
+  main.app>.top>.role-return-button .header-mobile-icon{display:block!important;width:19px!important;height:19px!important}
+  main.app>.top>.role-return-button .header-control-label{display:none!important}
+  main.app>.top>.brand{
+    grid-area:brand!important;display:flex!important;align-items:center!important;
+    justify-content:flex-start!important;gap:0!important;width:100%!important;
+    height:34px!important;min-width:0!important;margin:0!important;overflow:hidden!important;
+  }
+  main.app>.top>.brand img{
+    display:block!important;width:auto!important;height:30px!important;
+    max-width:68px!important;max-height:30px!important;object-fit:contain!important;
+  }
+  main.app>.top>.brand h1,
+  main.app>.top>.brand .version{display:none!important}
+  main.app>.top>.tools>.network-status{
+    grid-area:count!important;display:inline-flex!important;align-items:center!important;
+    justify-content:center!important;gap:0!important;width:100%!important;min-width:0!important;
+    margin:0!important;flex:0 0 auto!important;
+  }
+  main.app>.top>.tools>.network-status>.sig{display:none!important}
+  main.app>.top>.tools>.network-status>.chip{
+    display:inline-flex!important;align-items:center!important;justify-content:center!important;
+    gap:5px!important;width:auto!important;min-width:0!important;max-width:100%!important;
+    padding:3px 5px!important;margin:0!important;border:0!important;background:transparent!important;
+    font-size:12px!important;line-height:1!important;white-space:nowrap!important;
+  }
+  main.app>.top>.tools>.network-status>.chip i{display:block!important;width:7px!important;height:7px!important;flex:0 0 7px!important}
+  main.app>.top>.tools>.network-status>.chip #net{
+    display:inline-block!important;width:auto!important;min-width:1ch!important;max-width:3ch!important;
+    overflow:visible!important;text-overflow:clip!important;text-align:center!important;
+    font-size:12px!important;font-weight:750!important;font-variant-numeric:tabular-nums!important;
+  }
+  main.app>.top>.tools>.mic-indicator{
+    grid-area:mic!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;
+    width:28px!important;height:28px!important;min-width:28px!important;min-height:28px!important;margin:0!important;
+  }
+  main.app>.top>.tools>.snd{
+    grid-area:sound!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;
+    width:28px!important;height:28px!important;min-width:28px!important;min-height:28px!important;margin:0!important;
+  }
+  main.app>.top>.tools>#setBtn{
+    grid-area:settings!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;
+    width:30px!important;height:30px!important;min-width:30px!important;min-height:30px!important;
+    margin:0!important;padding:5px!important;
+  }
+  main.app>.top>.tools>#setBtn .lbl{display:none!important}
+  main.app>.top>.tools>#setBtn svg{width:17px!important;height:17px!important}
+  main.app>.top>.tools>.view-switch{
+    grid-area:switch!important;display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    grid-template-rows:40px!important;align-self:stretch!important;width:100%!important;
+    min-width:0!important;max-width:none!important;height:40px!important;min-height:40px!important;
+    margin:0!important;padding:3px!important;gap:4px!important;overflow:visible!important;
+    border-radius:8px!important;box-sizing:border-box!important;z-index:5!important;
+  }
+  main.app>.top>.tools>.view-switch .view-tab{
+    display:flex!important;align-items:center!important;justify-content:center!important;
+    width:100%!important;min-width:0!important;height:34px!important;min-height:34px!important;
+    margin:0!important;padding:4px 5px!important;font-size:12px!important;font-weight:750!important;
+    line-height:1!important;text-align:center!important;white-space:nowrap!important;
+    overflow:visible!important;text-overflow:clip!important;border-radius:6px!important;
+  }
+  main.app>.top>.tools>#headerNotesBtn,
+  main.app>.top>.tools>#mapBlocksBtn{
+    display:inline-flex!important;align-items:center!important;justify-content:center!important;
+    width:30px!important;min-width:30px!important;max-width:30px!important;
+    height:30px!important;min-height:30px!important;margin:0!important;padding:5px!important;
+    border-radius:8px!important;box-sizing:border-box!important;
+  }
+  main.app>.top>.tools>#headerNotesBtn{grid-area:notes!important}
+  main.app>.top>.tools>#mapBlocksBtn{grid-area:map!important}
+  main.app>.top>.tools>#headerNotesBtn .header-mobile-icon,
+  main.app>.top>.tools>#mapBlocksBtn .header-mobile-icon{display:block!important;width:19px!important;height:19px!important}
+  main.app>.top>.tools>#headerNotesBtn .header-control-label,
+  main.app>.top>.tools>#mapBlocksBtn .header-control-label{display:none!important}
+  main.app>.top>.tools>#mapBlocksBtn:before{display:none!important}
+  main.app>.top>.tools>.sig,
+  main.app>.top>.tools>.chip,
+  main.app>.top>.tools>.legacy-mode-switch,
+  main.app>.top>.tools>#checkMicBtn{display:none!important}
+}
+@media (max-width:380px){
+  main.app>.top{grid-template-columns:30px minmax(28px,1fr) 22px 38px 26px 26px 28px!important;column-gap:4px!important;padding:6px!important}
+  main.app>.top>.role-return-button{width:30px!important;min-width:30px!important;max-width:30px!important}
+  main.app>.top>.brand img{max-width:62px!important}
+  main.app>.top>.tools>.mic-indicator,
+  main.app>.top>.tools>.snd{width:26px!important;height:26px!important;min-width:26px!important;min-height:26px!important}
+  main.app>.top>.tools>#setBtn{width:28px!important;min-width:28px!important;height:28px!important;min-height:28px!important}
+  main.app>.top>.tools>#headerNotesBtn,
+  main.app>.top>.tools>#mapBlocksBtn{width:28px!important;min-width:28px!important;max-width:28px!important;height:28px!important;min-height:28px!important}
+  main.app>.top>.tools>.view-switch .view-tab{font-size:11px!important;padding-left:2px!important;padding-right:2px!important}
+}
+#panic:disabled{opacity:.32!important;filter:grayscale(1)!important;cursor:not-allowed!important;pointer-events:none!important}
+#panicAction:disabled,#panicAction.panic-conference-locked{opacity:.42!important;filter:grayscale(.7)!important;cursor:not-allowed!important;pointer-events:none!important;box-shadow:none!important}
+</style>
+
+
+<script id="mishap-v2-mobile-header-icons">
+(function(){
+  var notebookSvg='<svg class="header-mobile-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3.5h13v17H7z"/><path d="M4 6.5v14M4 9h3M4 13h3M4 17h3M10 8h7M10 12h7M10 16h5"/></svg>';
+  var mapSvg='<svg class="header-mobile-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3z"/><path d="M9 3v15M15 6v15"/></svg>';
+  var backSvg='<svg class="header-mobile-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m14.5 18-6-6 6-6"/><path d="M9 12h12"/></svg>';
+  function decorate(el,svg,label){
+    if(!el)return;
+    el.innerHTML=svg+'<span class="header-control-label"></span>';
+    el.querySelector('.header-control-label').textContent=label;
+    el.setAttribute('aria-label',label);el.title=label;
+  }
+  decorate(document.getElementById('backRoleBtn'),backSvg,'Retour au choix des rôles');
+  decorate(document.getElementById('headerNotesBtn'),notebookSvg,'Ouvrir le bloc-notes');
+  decorate(document.getElementById('mapBlocksBtn'),mapSvg,'Ouvrir les cartes');
+
+  // Sur mobile, réduire le statut du réseau à un point et un compteur lisible.
+  var netNode=document.getElementById('net');
+  var chip=netNode&&netNode.closest?netNode.closest('.chip'):null;
+  function reducePlayerCount(){
+    if(!netNode)return;
+    var raw=String(netNode.textContent||'').trim();
+    var match=raw.match(/\d+/);
+    var count=match?match[0]:'0';
+    if(netNode.textContent!==count)netNode.textContent=count;
+    if(chip){chip.setAttribute('aria-label',count+' joueur(s) connecté(s)');chip.title=count+' joueur(s) connecté(s)'}
+  }
+  if(netNode){
+    reducePlayerCount();
+    if(typeof MutationObserver==='function')new MutationObserver(reducePlayerCount).observe(netNode,{childList:true,characterData:true,subtree:true});
+  }
+})();
+</script>
 
 </body>
 </html>
