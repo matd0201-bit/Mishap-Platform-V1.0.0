@@ -6189,19 +6189,23 @@ main.app>.top>.brand{margin-left:3px!important}
 (function(){
   'use strict';
   var panel=document.getElementById('actionChatPanel');
-  if(!panel)return;
+  var app=document.querySelector('main.app');
+  var gameColumns=document.getElementById('gameColumns');
+  if(!panel||!app||!gameColumns)return;
+
   var layout=panel.querySelector('.action-chat-layout');
   var sidebar=panel.querySelector('.action-chat-sidebar');
   var main=panel.querySelector('.action-chat-main');
-  var panelHead=panel.querySelector(':scope > .panelHead');
-  var clearButton=document.getElementById('actionClearButton');
+  var panelHead=panel.querySelector('.panelHead');
   if(!layout||!sidebar||!main)return;
 
   var mobileQuery=window.matchMedia?window.matchMedia('(max-width: 860px)'):null;
+  var originalPanelParent=panel.parentNode;
+  var originalPanelNextSibling=panel.nextSibling;
   var shell=null,roomsView=null,conversationView=null,backButton=null,clearMirror=null;
-  var originalHeading=panelHead&&panelHead.querySelector('h2')?panelHead.querySelector('h2').textContent:'';
+  var lastActions=document.body.classList.contains('view-actions');
 
-  function isMobile(){return !!(mobileQuery&&mobileQuery.matches);}
+  function isMobile(){return mobileQuery?mobileQuery.matches:window.innerWidth<=860;}
   function make(tag,className,text){
     var el=document.createElement(tag);
     if(className)el.className=className;
@@ -6220,9 +6224,8 @@ main.app>.top>.brand{margin-left:3px!important}
       var avatar=make('span','mobile-channel-avatar',avatarText);
       avatar.setAttribute('aria-hidden','true');
       var copy=make('span','mobile-channel-copy');
-      var preview=make('span','mobile-channel-preview',previewText);
       copy.appendChild(name);
-      copy.appendChild(preview);
+      copy.appendChild(make('span','mobile-channel-preview',previewText));
       var arrow=make('span','mobile-channel-chevron','›');
       arrow.setAttribute('aria-hidden','true');
       button.insertBefore(avatar,button.firstChild);
@@ -6250,12 +6253,20 @@ main.app>.top>.brand{margin-left:3px!important}
     var messages=document.getElementById('actionChatMessages');
     if(messages)messages.scrollTop=messages.scrollHeight;
   }
-  /* Un seul écouteur durable : évite les doublons après rotation mobile/desktop. */
   sidebar.addEventListener('click',function(event){
     var target=event.target;
     var button=target&&target.closest?target.closest('.action-channel-button[data-action-channel]'):null;
     if(button&&sidebar.contains(button))openConversation();
   });
+
+  function movePanelToMobileRoot(){
+    if(panel.parentNode===app)return;
+    if(gameColumns.parentNode===app){
+      app.insertBefore(panel,gameColumns.nextSibling);
+    }else{
+      app.appendChild(panel);
+    }
+  }
   function buildMobileShell(){
     if(shell)return;
     shell=make('div','mobile-action-chat-app');
@@ -6278,6 +6289,7 @@ main.app>.top>.brand{margin-left:3px!important}
 
     var toolbar=main.querySelector('.action-chat-toolbar');
     var actions=main.querySelector('.action-chat-toolbar-actions');
+    var clearButton=document.getElementById('actionClearButton');
     if(toolbar){
       backButton=make('button','mobile-chat-back','‹');
       backButton.type='button';
@@ -6296,6 +6308,7 @@ main.app>.top>.brand{margin-left:3px!important}
     }
     decorateChannelButtons();
     panel.classList.add('mobile-chat-enabled');
+    movePanelToMobileRoot();
   }
   function restoreDesktopLayout(){
     if(!shell)return;
@@ -6309,19 +6322,27 @@ main.app>.top>.brand{margin-left:3px!important}
     shell.remove();
     shell=null;roomsView=null;conversationView=null;backButton=null;clearMirror=null;
     panel.classList.remove('mobile-chat-enabled');
-    var h=panelHead&&panelHead.querySelector('h2');if(h&&originalHeading)h.textContent=originalHeading;
+    if(originalPanelParent&&panel.parentNode!==originalPanelParent){
+      if(originalPanelNextSibling&&originalPanelNextSibling.parentNode===originalPanelParent){
+        originalPanelParent.insertBefore(panel,originalPanelNextSibling);
+      }else{
+        originalPanelParent.appendChild(panel);
+      }
+    }
   }
   function syncLayout(){
-    if(isMobile()){
-      buildMobileShell();
-      if(!document.body.classList.contains('view-actions'))openRooms();
-    }else restoreDesktopLayout();
+    if(isMobile())buildMobileShell();
+    else restoreDesktopLayout();
   }
   function syncPageState(){
     if(!isMobile())return;
-    if(!document.body.classList.contains('view-actions'))openRooms();
+    var actions=document.body.classList.contains('view-actions');
+    if(actions!==lastActions||!actions)openRooms();
+    lastActions=actions;
   }
+
   syncLayout();
+  syncPageState();
   var resizeTimer=0;
   window.addEventListener('resize',function(){
     if(resizeTimer)window.clearTimeout(resizeTimer);
@@ -6337,12 +6358,93 @@ main.app>.top>.brand{margin-left:3px!important}
     observer.observe(document.body,{attributes:true,attributeFilter:['class']});
   }
   document.addEventListener('keydown',function(event){
-    if(event.key==='Escape'&&isMobile()&&document.body.classList.contains('view-actions')&&document.body.classList.contains('mobile-chat-conversation')){
-      openRooms();
-    }
+    if(event.key==='Escape'&&isMobile()&&document.body.classList.contains('view-actions')&&document.body.classList.contains('mobile-chat-conversation'))openRooms();
   });
 })();
 </script>
 
+
+<style id="mishap-mobile-chat-root-layout-fix">
+/* Final iPhone/mobile layout: Radio and Actions are mutually exclusive workspaces.
+   This block is mobile-only; desktop DOM and layout are restored by the controller. */
+@media (max-width: 860px) {
+  body:not(.onboarding-active) main.app {
+    display:flex !important;
+    flex-direction:column !important;
+    width:100% !important;
+    height:100vh !important;
+    height:100dvh !important;
+    min-height:0 !important;
+    max-height:100vh !important;
+    max-height:100dvh !important;
+    overflow:hidden !important;
+    box-sizing:border-box !important;
+  }
+  body.view-actions main.app > #gameColumns {
+    display:none !important;
+    flex:0 0 0 !important;
+    width:0 !important;
+    height:0 !important;
+    min-width:0 !important;
+    min-height:0 !important;
+    max-width:0 !important;
+    max-height:0 !important;
+    margin:0 !important;
+    padding:0 !important;
+    overflow:hidden !important;
+  }
+  body.view-actions main.app > #actionChatPanel {
+    display:flex !important;
+    position:relative !important;
+    flex:1 1 0% !important;
+    flex-direction:column !important;
+    width:100% !important;
+    height:auto !important;
+    min-width:0 !important;
+    min-height:0 !important;
+    max-width:100% !important;
+    max-height:none !important;
+    margin:0 !important;
+    padding:0 !important;
+    overflow:hidden !important;
+    border:0 !important;
+    border-radius:0 !important;
+    background:#0b1220 !important;
+    box-shadow:none !important;
+    box-sizing:border-box !important;
+  }
+  body.view-actions main.app > #actionChatPanel > .mobile-action-chat-app {
+    display:flex !important;
+    flex:1 1 0% !important;
+    width:100% !important;
+    min-width:0 !important;
+    min-height:0 !important;
+    overflow:hidden !important;
+  }
+  body:not(.view-actions) main.app > #gameColumns {
+    display:flex !important;
+    flex:1 1 auto !important;
+    width:100% !important;
+    min-width:0 !important;
+    min-height:0 !important;
+    max-width:100% !important;
+    max-height:none !important;
+    overflow:hidden !important;
+  }
+  body:not(.view-actions) main.app > #actionChatPanel {
+    display:none !important;
+    flex:0 0 0 !important;
+    width:0 !important;
+    height:0 !important;
+    min-width:0 !important;
+    min-height:0 !important;
+    max-width:0 !important;
+    max-height:0 !important;
+    margin:0 !important;
+    padding:0 !important;
+    overflow:hidden !important;
+  }
+}
+</style>
 </body>
 </html>
