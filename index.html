@@ -5123,9 +5123,19 @@ main.app>.top>.brand{margin-left:3px!important}
 /* Refonte MOBILE du tchat actions uniquement. La bannière, les contrôles radio
    et toutes les règles de bureau restent inchangés. */
 @media (max-width: 860px) {
-  /* En vue Actions, les panneaux radio sont déjà masqués : retirer leur
-     conteneur vide permet au tchat d'occuper exactement l'espace restant. */
+  /* Le tchat est enfant de #gameColumns : conserver ce conteneur visible,
+     masquer uniquement les panneaux radio et laisser le tchat prendre la place. */
   body.view-actions #gameColumns {
+    display: flex !important;
+    flex: 1 1 auto !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+  }
+  body.view-actions #gameColumns > #pttZone,
+  body.view-actions #gameColumns > #radioWorkspace {
     display: none !important;
   }
 
@@ -5133,7 +5143,7 @@ main.app>.top>.brand{margin-left:3px!important}
     display: flex !important;
     flex: 1 1 0% !important;
     width: 100% !important;
-    height: 0 !important;
+    height: auto !important;
     min-height: 0 !important;
     max-height: none !important;
     min-width: 0 !important;
